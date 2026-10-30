@@ -5,7 +5,7 @@ Blog post: [Telling identical GPUs apart from their numerical output](https://di
 **Two GPUs of the same model compute the same sum in a slightly different order, and that difference is enough to tell them apart.** A small CUDA kernel identifies which of 19 identical NVIDIA A40s it ran on with 99.1% accuracy, using only the numbers it computes. It reads no serial number and uses no timers.
 
 - **It survives reboots.** After a container restart, all 12 measurements matched the right chip.
-- **It couldn't be forged.** An attacker on one chip, tuning every launch setting it controls, reached at best 0.616 correlation with another chip's fingerprint. Genuine chips match their own at 0.92 or higher.
+- **It couldn't be forged.** An attacker on one chip, tuning every launch setting it controls, reached at best 0.616 correlation with another chip's fingerprint. Genuine chips match their own at 0.946 on average, and never below 0.916.
 - **A default `torch.index_add_` call leaks it too.** Reading nothing but that op's ordinary output identifies the chip with 100% accuracy among GPUs on the same driver, and 78% across mixed drivers.
 - **It works across models:** A40, RTX 3090, RTX 4090 and L40S.
 
