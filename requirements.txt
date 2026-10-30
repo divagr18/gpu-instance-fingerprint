@@ -1,0 +1,7 @@
+# Analysis (CPU): enough to reproduce every result from the included data
+numpy>=1.24
+scipy>=1.10
+
+# GPU probes: install on the machine with the NVIDIA GPU
+#   cupy-cuda12x>=13   probes/probe_puf.py, experiments/forge_probe.py
+#   torch>=2.1         probes/passive_index_add.py, experiments/*
