@@ -1,8 +1,17 @@
-# GPU instance fingerprinting from atomic-contention order
+# Telling identical GPUs apart
 
-This repo identifies individual NVIDIA GPUs that are physically identical and the same model, using only the numerical output of a parallel reduction. When thread blocks race to a global `atomicAdd`, the hardware decides the arrival order, per-SM manufacturing skew biases that order, and the bias is stable enough to tell one die from another.
+Blog post: [Telling identical GPUs apart from their numerical output](https://divagr.com/blog/telling-identical-gpus-apart)
 
-It contains the active probe, a passive variant that works on plain `torch.index_add_` output, the forgery, leakage-boundary and defense experiments, every measurement JSON behind the results below, and analysis scripts that reproduce each number on a CPU.
+**Two GPUs of the same model compute the same sum in a slightly different order, and that difference is enough to tell them apart.** A small CUDA kernel identifies which of 19 identical NVIDIA A40s it ran on with 99.1% accuracy, using only the numbers it computes. It reads no serial number and uses no timers.
+
+- **It survives reboots.** After a container restart, all 12 measurements matched the right chip.
+- **It couldn't be forged.** An attacker on one chip, tuning every launch setting it controls, reached at best 0.616 correlation with another chip's fingerprint. Genuine chips match their own at 0.92 or higher.
+- **A default `torch.index_add_` call leaks it too.** Reading nothing but that op's ordinary output identifies the chip with 100% accuracy among GPUs on the same driver, and 78% across mixed drivers.
+- **It works across models:** A40, RTX 3090, RTX 4090 and L40S.
+
+Why it works: when thousands of thread blocks race to update one counter, the hardware decides who arrives first. Tiny manufacturing differences between a chip's cores bias that order the same way every time.
+
+PyTorch's deterministic mode removes the `index_add_` leak. The repo contains the probes, every measurement behind the numbers below, and scripts that reproduce each result on a laptop CPU.
 
 ## Results
 
@@ -45,7 +54,7 @@ per-chip residual  -->  nearest-centroid match against enrolled chips
 Three channels come out of one run:
 
 - **P3, per-block rank.** Mean arrival slot per block index. It is read from the kernel's numerical output alone: no `%smid`, no timers, no privileged counters. This is the headline channel.
-- **P2, per-SM rank.** The same slots binned by physical SM via the `%smid` register. Binning by physical SM averages out thermal noise, so P2 is the more stable channel under load (100% re-ID after 60 s of full-load stress, vs 67% for P3).
+- **P2, per-SM rank.** The same slots binned by physical SM via the `%smid` register. Binning by physical SM averages out thermal noise, so P2 holds up under load: 100% re-identification (18/18) after 60 s of full-load stress.
 - **P1, marginal sum.** A histogram of the float32 result of a fixed reduction. It is weak (1.20x separation on 8 A40s), because summing destroys most of the order information.
 
 Subtracting the mean across chips removes everything the chips share (architecture, driver, compiler) and leaves the per-die residual. Two measurements of the same chip land close together; measurements of different chips do not.
@@ -99,7 +108,7 @@ All commands run from the repo root on a CPU. Scripts find their data in `data/`
 | Same-driver 4 A40s: P3 100% (6.10x), P2 100% (5.43x) | `python analysis/analyze_puf.py "a40_8chip/puf8_[4678]_*.json"` | `data/a40_8chip` |
 | Pooled: 12 chips 98.6% (71/72); 19 chips 99.1% (111/112), 4.28x, 97% of chip pairs separated by more than 2x the within-chip noise | `python analysis/pooled_analyze.py` | `a40_8chip`, `a40_stability` (T1), `a40_reboot` (T1), `a40_scale` |
 | Reboot: 100% re-ID (12/12) for P3 (margin 5.07x) and P2 (margin 5.03x) | `python analysis/temporal_analyze.py a40_reboot` | `data/a40_reboot` (4 chips) |
-| 60 s stress: baseline LOO 96% (23/24); re-ID P2 100% (18/18), P3 67% (12/18) | `python analysis/temporal_analyze.py a40_stability` | `data/a40_stability` (6 chips) |
+| 60 s stress: baseline LOO 96% (23/24); re-ID P2 100% (18/18) | `python analysis/temporal_analyze.py a40_stability` | `data/a40_stability` (6 chips) |
 | RTX 3090 x7, RTX 4090, 3090 pair, L40S pair | `python analysis/cross_model_analyze.py` | `data/rtx3090`, `data/rtx4090`, `data/cross_model` |
 | Passive index_add (K=65536, K=4096), dense control, scatter-overwrite | `python analysis/passive_analyze.py` | `data/passive_*` |
 | ROC and bit capacity | `python analysis/roc_capacity.py` | all A40 probe data, `passive_k4096`, `passive_k65536`, `rtx4090` |
@@ -221,6 +230,12 @@ docker/                   probe image (CUDA 12.8 + cupy + sshd)
 ```
 
 Chip numbers in file names are per-experiment indices. The ground-truth chip identity is the GPU UUID inside each JSON, which is how chips that recur across experiments are matched.
+
+## Citation
+
+```bibtex
+@software{agrawal2026gpufingerprint, author = {Agrawal, Divyansh}, title = {Telling identical {GPUs} apart from their numerical output}, year = {2026}, url = {https://github.com/divagr18/gpu-instance-fingerprint}}
+```
 
 ## License
 

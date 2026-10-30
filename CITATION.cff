@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Telling identical GPUs apart from their numerical output"
+authors:
+  - family-names: "Agrawal"
+    given-names: "Divyansh"
+repository-code: "https://github.com/divagr18/gpu-instance-fingerprint"
+url: "https://github.com/divagr18/gpu-instance-fingerprint"
+license: MIT
+date-released: "2026-10-31"
+year: 2026
+type: software
